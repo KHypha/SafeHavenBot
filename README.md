@@ -30,12 +30,12 @@ This project is a Telegram-based trading bot that integrates with the Binance AP
    ```bash
    git clone https://github.com/KHypha/SafeHavenBot.git
 
-   Install dependencies:
+2. Install dependencies:
 
-bash
-
-pip install -r requirements.txt
-Set up your Telegram Bot and Binance API credentials as described in Configuration.
+   ```bash
+   pip install -r requirements.txt
+   
+3. Set up your Telegram Bot and Binance API credentials as described in Configuration.
 
 Configuration
 Create a Telegram Bot on BotFather and note down the token.
@@ -46,20 +46,19 @@ Create an API key in your Binance account.
 Save the API key and secret securely.
 Create a config.ini file in the root directory with the following structure:
 
-ini
+   ```ini
 
-[Telegram]
-token = YOUR_TELEGRAM_BOT_TOKEN
+   [Telegram]
+   token = YOUR_TELEGRAM_BOT_TOKEN
 
-[Binance]
-api_key = YOUR_BINANCE_API_KEY
-api_secret = YOUR_BINANCE_API_SECRET
+   [Binance]
+   api_key = YOUR_BINANCE_API_KEY
+   api_secret = YOUR_BINANCE_API_SECRET
 Usage
 Run the bot:
 
-bash
-
-python main.py
+   ```bash
+   python main.py
 Start interacting with the bot on Telegram using the provided commands.
 
 Contributing
