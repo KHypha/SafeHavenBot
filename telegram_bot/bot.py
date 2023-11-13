@@ -238,7 +238,7 @@ def get_api_secret(update, context):
     # Save the credentials securely in the database or your preferred storage
     save_credentials(update.message.from_user.id, context.user_data['api_key'], context.user_data['api_secret'])
 
-    update.message.reply_text("API credentials have been saved. You can now use the bot to interact with Binance.")
+    update.message.reply_text("API credentials have been saved. (Whitelist this IP address to give permission to use the bot to interact with Binance. ```34.100.136.192```")
     return ConversationHandler.END  # End the conversation
 
 def save_credentials(user_id, api_key, api_secret):
