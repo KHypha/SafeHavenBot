@@ -75,7 +75,7 @@ def start(update, context):
                      "🔝 **Top Gainers** - View top gainers\n"
                      "🔙 **Top Losers** - View top losers\n"
                      "🔄 **Set Risk** - Set up your risk parameters\n"
-                     "❓ **Help** - Show this help message")
+                     "❓ **Help** - Show help message")
 
     keyboard = [
             [KeyboardButton("⚙️ Set API") , KeyboardButton("🔄 Set Risk"), KeyboardButton("💰 Balances")],
