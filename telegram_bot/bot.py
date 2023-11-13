@@ -269,7 +269,7 @@ def get_binance_api(update, context):
     if api_key and api_secret:
         return BinanceFuturesAPI(api_key, api_secret, context)
     else:
-        update.message.reply_text("API credentials not found. Please set up your credentials using /start.")
+        update.message.reply_text("API credentials not found. Please set up your credentials using /setapi")
         return None  # Return None if credentials are not found
 
 def check_price(update, context):
@@ -447,7 +447,7 @@ def open_short(update, context):
             update.message.reply_text(f"An error occurred: {str(e)}")
 
     else:
-        update.message.reply_text("API credentials not found. Please set up your credentials using /start.")
+        update.message.reply_text("API credentials not found. Please set up your credentials using /setapi")
 
 def open_limit_order(update, context):
     chat_id = update.message.chat_id
@@ -481,7 +481,7 @@ def open_limit_order(update, context):
         update.message.reply_text(f"An error occurred: {str(e)}")
 
     else:
-        update.message.reply_text("API credentials not found. Please set up your credentials using /start.")
+        update.message.reply_text("API credentials not found. Please set up your credentials using /setapi")
  
 def start_order(update, context):
     context.user_data.clear()  # Clear any previous user data
