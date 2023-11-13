@@ -47,18 +47,20 @@ Save the API key and secret securely.
 Create a config.ini file in the root directory with the following structure:
 
    ```ini
-
    [Telegram]
    token = YOUR_TELEGRAM_BOT_TOKEN
-
    [Binance]
    api_key = YOUR_BINANCE_API_KEY
    api_secret = YOUR_BINANCE_API_SECRET
-Usage
+```
+
+
+4. Usage
 Run the bot:
 
    ```bash
    python main.py
+
 Start interacting with the bot on Telegram using the provided commands.
 
 Contributing
