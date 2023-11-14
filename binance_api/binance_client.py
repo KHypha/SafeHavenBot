@@ -3,7 +3,7 @@ import requests
 
 class BinanceFuturesAPI:
     def __init__(self, api_key, api_secret, context):
-        self.client = Client(api_key, api_secret)
+        self.client = Client(api_key, api_secret, testnet=True)
         self.context = context
     def check_hedge_mode(self):
          # Check if hedge mode is activated
@@ -19,15 +19,57 @@ class BinanceFuturesAPI:
         else:
             return None
 
+    def cancel_order(self, symbol, order_id):
+        try:
+            cancelled_order = self.client.futures_cancel_order(symbol=symbol, orderId=order_id)
+            return cancelled_order
+        except Exception as e:
+            print(f"Error cancelling order: {e}")
+            return None
+    
     def get_klines(self, symbol, interval):
         """Get OHLC (Open/High/Low/Close) data for a symbol and interval."""
-        klines = self.client.get_klines(symbol=symbol, interval=interval)
+        klines = self.client.futures_klines(symbol=symbol, interval=interval, limit=1)
         if klines:
-            # Format the klines data
-            formatted_data = "\n".join([f"Open time: {kline[0]}, Open: {kline[1]}, High: {kline[2]}, Low: {kline[3]}, Close: {kline[4]}" for kline in klines])
-            return formatted_data
+            kline = klines[0]
+            open_price = float(kline[1])
+            high_price = float(kline[2])
+            low_price = float(kline[3])
+            close_price = float(kline[4])
+            return open_price, high_price, low_price, close_price
         else:
             return None
+
+    def display_orders(self):
+        try:
+            # Get open orders
+            orders = self.client.futures_get_open_orders()
+            return orders
+        except Exception as e:
+            print(f"Error fetching open orders: {e}")
+            return None
+    
+    def get_top_movers(self):
+        # Define the endpoint URL
+        url = 'https://fapi.binance.com/fapi/v1/ticker/24hr'
+
+        # Make a GET request to fetch the 24-hour ticker data for all trading pairs
+        response = requests.get(url)
+        data = response.json()
+
+        # Filter the data to get only USD-M futures pairs
+        usd_m_futures_pairs = [pair for pair in data if pair['symbol'].endswith('USDT')]
+        
+        # Sort the pairs by their price change percentage (gainers and losers)
+        top_gainers = sorted(usd_m_futures_pairs, key=lambda x: float(x['priceChangePercent']), reverse=True)[:10]
+        top_losers = sorted(usd_m_futures_pairs, key=lambda x: float(x['priceChangePercent']))[:10]
+
+        return top_gainers, top_losers
+    def get_mark_price(self, symbol):
+        # Use the Binance API to fetch the mark price for the given symbol
+        mark_price_info = self.client.futures_mark_price(symbol=symbol)
+        mark_price = mark_price_info["markPrice"]
+        return mark_price
 
     def get_top_gainers(self):
         """Get the top gainers."""
