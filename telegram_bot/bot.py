@@ -2,10 +2,12 @@ import telegram
 import sqlite3
 from telegram import ParseMode, ReplyKeyboardMarkup, KeyboardButton
 
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters,ConversationHandler
+from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler,  Filters,ConversationHandler
 from binance_api.binance_client import BinanceFuturesAPI
 from telegram import Update, InlineKeyboardButton, KeyboardButton, InlineKeyboardMarkup,ReplyKeyboardMarkup , ReplyKeyboardRemove
- 
+
+
+
 
 # Define conversation states
 SELECT_ORDER_TYPE, ENTER_SYMBOL, ENTER_SIDE, ENTER_POSITION_SIDE, ENTER_QUANTITY, ENTER_PRICE, ENTER_STOP_PRICE, ENTER_LIMIT_PRICE = range(8)
@@ -19,15 +21,8 @@ LIMIT_ORDER = 'limit'
 STOP_LIMIT_ORDER = 'stoplimit'
 STOP_LOSS_ORDER = 'stoploss'
 TAKE_PROFIT_ORDER = 'takeprofit'
-
 DATABASE_FILE = 'credentials.db'
 
-
-from telegram.ext import CommandHandler, MessageHandler, Filters
-
-# ... Your existing code ...
-
-# Define a function to handle both the command and its emoji-enhanced version
 def set_commands(update, context):
     command_text = update.message.text.lower()
 
@@ -53,15 +48,11 @@ def set_commands(update, context):
     elif command_text in ['/help', '❓ help']:
         help_command(update, context)
     else:
-        # Handle other cases or provide a response for unrecognized input
         update.message.reply_text("Unrecognized command. Please use /start for available commands")
 
 # Create the CommandHandler for the emoji-enhanced version
 set_commands_handler = MessageHandler(Filters.text & ~Filters.command, set_commands)
 
-
-# Initialize the Telegram bot
-from telegram import ParseMode, ReplyKeyboardMarkup, KeyboardButton
 
 # Modify your existing start function to include a simple dashboard
 def start(update, context):
@@ -223,8 +214,8 @@ def set_api(update, context):
                               "\nPlease enter your API Key:", reply_markup=reply_markup)
 
     return ENTER_API_KEY
-ENTER_API_KEY, ENTER_API_SECRET = range(2)
 
+ENTER_API_KEY, ENTER_API_SECRET = range(2)
 def get_api_key(update, context):
     api_key = update.message.text.strip()
     context.user_data['api_key'] = api_key
@@ -238,11 +229,11 @@ def get_api_secret(update, context):
     # Save the credentials securely in the database or your preferred storage
     save_credentials(update.message.from_user.id, context.user_data['api_key'], context.user_data['api_secret'])
 
-    update.message.reply_text("API credentials have been saved. (Whitelist this IP address to give permission to use the bot to interact with Binance. ```34.100.136.192```")
+    update.message.reply_text("API credentials have been saved. You can now use the bot to interact with Binance.")
     return ConversationHandler.END  # End the conversation
 
 def save_credentials(user_id, api_key, api_secret):
-    conn = sqlite3.connect('credentials.db')
+    conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     cursor.execute('REPLACE INTO user_credentials (user_id, api_key, api_secret) VALUES (?, ?, ?)', (user_id, api_key, api_secret))
     conn.commit()
@@ -250,7 +241,7 @@ def save_credentials(user_id, api_key, api_secret):
 
 # Define a function to get user credentials from the database
 def get_credentials(user_id):
-    conn = sqlite3.connect('credentials.db')
+    conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     cursor.execute("SELECT api_key, api_secret FROM user_credentials WHERE user_id=?", (user_id,))
     result = cursor.fetchone()
@@ -269,7 +260,7 @@ def get_binance_api(update, context):
     if api_key and api_secret:
         return BinanceFuturesAPI(api_key, api_secret, context)
     else:
-        update.message.reply_text("API credentials not found. Please set up your credentials using /setapi")
+        update.message.reply_text("API credentials not found. Please set up your credentials using /start.")
         return None  # Return None if credentials are not found
 
 def check_price(update, context):
@@ -292,49 +283,76 @@ def check_price(update, context):
         context.bot.send_message(chat_id=update.message.chat_id, text=f"Symbol {symbol} not found or invalid.")
   
 def get_ohlc(update, context):
+    # Extract user input from the command arguments
     user_input = context.args
 
+    # Check if the user has provided both symbol and interval
     if len(user_input) != 2:
         message = "Usage: /get_ohlc <symbol> <interval>"
         message += "\n/get_ohlc BTCUSDT 1h"
         context.bot.send_message(chat_id=update.message.chat_id, text=message)
         return
 
+    # Extract symbol and interval from user input
     symbol = user_input[0].upper()  # Assuming the user enters the symbol in uppercase
     interval = user_input[1].lower()  # Assuming the user enters the interval in lowercase
 
+    # Get the Binance API instance
     binance_api = get_binance_api(update, context)
+
+    # Call the get_klines method to fetch OHLC data
     ohlc_data = binance_api.get_klines(symbol, interval)
 
+    # Check if OHLC data is retrieved successfully
     if ohlc_data:
-        # Process and format the OHLC data as needed
-        # Then send it as a message to the user
-        context.bot.send_message(chat_id=update.message.chat_id, text=f"OHLC data for {symbol} ({interval}):\n{ohlc_data}")
+        # Process and format the OHLC data
+        formatted_data = format_ohlc_data(ohlc_data)
+
+        # Send the formatted data as a message to the user
+        context.bot.send_message(chat_id=update.message.chat_id, text=f"OHLC data for {symbol} ({interval}):\n{formatted_data}")
     else:
         context.bot.send_message(chat_id=update.message.chat_id, text=f"Symbol {symbol} or interval {interval} not found or invalid.")
-  
+
+def format_ohlc_data(ohlc_data):
+    # Format OHLC data for better presentation
+    open_price, high_price, low_price, close_price = ohlc_data
+
+    formatted_data = f"Open: {open_price} Close: {close_price}\n" \
+                     f"High: {high_price} Low: {low_price}\n" \
+    
+    return formatted_data
+
 def view_top_gainers(update, context):
     binance_api = get_binance_api(update, context)
-    top_gainers = binance_api.get_top_gainers()
+    top_gainers, top_losers = binance_api.get_top_movers()
 
-    if top_gainers:
-        # Process and format the top gainers data as needed
-        # Then send it as a message to the user
-        context.bot.send_message(chat_id=update.message.chat_id, text=f"Top Gainers:\n{top_gainers}")
-    else:
-        context.bot.send_message(chat_id=update.message.chat_id, text="Failed to fetch top gainers.")
- 
+    message = "🚀 Top Gainers:\n"
+    for gainer in top_gainers:
+        symbol = gainer['symbol']
+
+        price_change_percent = gainer['priceChangePercent']
+        emoji = "🔥" if float(price_change_percent) > 20 else ""
+
+        mark_price = float(binance_api.get_mark_price(symbol))
+        message += f"🔼#{symbol}: {mark_price:.4f} {price_change_percent}%{emoji} \n"
+
+    context.bot.send_message(chat_id=update.message.chat_id, text=message)
+   
 def view_top_losers(update, context):
     binance_api = get_binance_api(update, context)
-    top_losers = binance_api.get_top_losers()
+    top_gainers, top_losers = binance_api.get_top_movers()
 
-    if top_losers:
-        # Process and format the top losers data as needed
-        # Then send it as a message to the user
-        context.bot.send_message(chat_id=update.message.chat_id, text=f"Top Losers:\n{top_losers}")
-    else:
-        context.bot.send_message(chat_id=update.message.chat_id, text="Failed to fetch top losers.")
- 
+    message = "\n📉 Top Losers:\n"
+    for loser in top_losers:
+        symbol = loser['symbol']
+
+        price_change_percent = loser['priceChangePercent']
+        emoji = "🔥" if float(price_change_percent) < -20 else ""
+
+        mark_price = float(binance_api.get_mark_price(symbol))
+        message += f"🔻#{symbol}: {mark_price:.4f} {price_change_percent}%{emoji} \n"
+    context.bot.send_message(chat_id=update.message.chat_id, text=message)
+
 def check_balances(update, context):
     binance_api = get_binance_api(update, context)
     account_info = binance_api.check_balances()
@@ -351,31 +369,6 @@ def check_balances(update, context):
                 response_text += f"💳 {balance['asset']}: 💲{float(balance['walletBalance']):.4f}\n"
     update.message.reply_text(response_text)
  
-def open_long(update, context):
-    chat_id = update.message.chat_id
-    
-    binance_api = get_binance_api(update, context)
-
-
-    try:
-            user_input = context.args
-
-            if len(user_input) != 2:
-                message = "Usage: /long <symbol> <quantity>"
-                message += "\n/long LTCUSDT 1"
-                context.bot.send_message(chat_id=chat_id, text=message)
-                return
-
-            symbol = user_input[0]
-            quantity = float(user_input[1])
-            position_side = "LONG"  # Set position side to SHORT
-            side = "BUY"
-            order = binance_api.place_market_order(symbol, side, position_side, quantity,)
-
-            update.message.reply_text(f"Market order placed:\n{order}")
-    except Exception as e:
-            update.message.reply_text(f"An error occurred: {str(e)}")
-
    
 def display_orders(update, context):
     chat_id = update.message.chat_id
@@ -397,64 +390,140 @@ def display_orders(update, context):
     except Exception as e:
         context.bot.send_message(chat_id=chat_id, text=f"An error occurred: {e}")
 
-def cancel_order(update, context):
+def display_orders_command(update, context):
     chat_id = update.message.chat_id
-    
+
     binance_api = get_binance_api(update, context)
-    
+
     try:
         orders = binance_api.display_orders()
-        
+
         if not orders:
             context.bot.send_message(chat_id=chat_id, text="No open orders found.")
             return
-    
+
+        orders_text = "Open orders:\n"
+        for order in orders:
+            orders_text += f"Symbol: {order['symbol']}, Side: {order['side']}, Quantity: {order['origQty']}, Price: {order['price']}\n"
+
+        context.bot.send_message(chat_id=chat_id, text=orders_text)
+    except Exception as e:
+        context.bot.send_message(chat_id=chat_id, text=f"An error occurred: {e}")
+
+def cancel_order(update, context):
+    chat_id = update.message.chat_id
+
+    binance_api = get_binance_api(update, context)
+
+    try:
+        orders = binance_api.display_orders()
+
+        if not orders:
+            context.bot.send_message(chat_id=chat_id, text="No open orders found.")
+            return
+
         keyboard = []
         for order in orders:
             order_details = f"{order['side']} {order['origQty']} {order['symbol']} @ {order['price']}"
             callback_data = f"cancel__{order['symbol']}__{order['orderId']}"  # Include symbol and order ID in callback data
             keyboard.append([InlineKeyboardButton(order_details, callback_data=callback_data)])
-        
+
         reply_markup = InlineKeyboardMarkup(keyboard)
         context.bot.send_message(chat_id=chat_id, text="Select orders to cancel:", reply_markup=reply_markup)
-        
+
     except Exception as e:
         context.bot.send_message(chat_id=chat_id, text=f"An error occurred: {e}")
 
-def open_short(update, context):
+def handle_callback(update, context):
     chat_id = update.message.chat_id
-    
+    query = update.callback_query
+    data = query.data.split("__")  # Split the callback data
+    action = data[0]
+
     binance_api = get_binance_api(update, context)
 
+    if action == "cancel":
+        # Handle cancel command callback
+        symbol = data[1]
+        order_id = int(data[2])
+
+        try:
+            cancelled_order = binance_api.cancel_order(symbol=symbol, order_id=order_id)
+            if cancelled_order:
+                context.bot.send_message(chat_id=chat_id, text=f"Order {order_id} for {symbol} has been cancelled.")
+            else:
+                context.bot.send_message(chat_id=chat_id, text=f"Failed to cancel order {order_id} for {symbol}.")
+        except Exception as e:
+            context.bot.send_message(chat_id=chat_id, text=f"An error occurred: {e}")
+
+def open_short(update, context):
+    chat_id = update.message.chat_id
 
     try:
-            user_input = context.args
+        user_input = context.args
 
-            if len(user_input) != 2:
-                message = "Usage: /short <symbol> <quantity>"
-                message += "\n/short LTCUSDT 1"
-                context.bot.send_message(chat_id=chat_id, text=message)
-                return
+        if len(user_input) != 2:
+            message = "Usage: /short <symbol> <quantity>"
+            message += "\n/short LTCUSDT 1"
+            context.bot.send_message(chat_id=chat_id, text=message)
+            return
 
-            symbol = user_input[0]
-            quantity = float(user_input[1])
-            position_side = "SHORT"  # Set position side to SHORT
-            side = "SELL"
-            order = binance_api.place_market_order(symbol, side, position_side, quantity,)
+        symbol = user_input[0]
+        quantity = float(user_input[1])
+        position_side = "SHORT"  # Set position side to SHORT
+        side = "SELL"
 
-            update.message.reply_text(f"Market order placed:\n{order}")
+        # Set the order type in user_data
+        context.user_data['order_type'] = MARKET_SHORT
+
+        # Set other necessary parameters in user_data
+        context.user_data['symbol'] = symbol
+        context.user_data['quantity'] = quantity
+        context.user_data['side'] = side
+        context.user_data['position_side'] = position_side
+
+        # Call the place_order function
+        place_order(update, context)
+
     except Exception as e:
-            update.message.reply_text(f"An error occurred: {str(e)}")
+        update.message.reply_text(f"An error occurred: {str(e)}")
 
-    else:
-        update.message.reply_text("API credentials not found. Please set up your credentials using /setapi")
+def open_long(update, context):
+    chat_id = update.message.chat_id
+
+    try:
+        user_input = context.args
+
+        if len(user_input) != 2:
+            message = "Usage: /long <symbol> <quantity>"
+            message += "\n/long LTCUSDT 1"
+            context.bot.send_message(chat_id=chat_id, text=message)
+            return
+
+        symbol = user_input[0]
+        quantity = float(user_input[1])
+        position_side = "LONG"  # Set position side to LONG
+        side = "BUY"
+
+        # Set the order type in user_data
+        context.user_data['order_type'] = MARKET_LONG
+
+        # Set other necessary parameters in user_data
+        context.user_data['symbol'] = symbol
+        context.user_data['quantity'] = quantity
+        context.user_data['side'] = side
+        context.user_data['position_side'] = position_side
+
+        # Call the place_order function
+        place_order(update, context)
+
+    except Exception as e:
+        update.message.reply_text(f"An error occurred: {str(e)}")
+
 
 def open_limit_order(update, context):
     chat_id = update.message.chat_id
-    
-    binance_api = get_binance_api(update, context)
 
-        # Parse user input to get order parameters
     try:
         user_input = context.args
 
@@ -475,14 +544,23 @@ def open_limit_order(update, context):
         # If positionSide is not provided, use 'BUY' for long and 'SELL' for short
         if position_side is None:
             position_side = 'LONG' if side == 'BUY' else 'SHORT'
-        order = binance_api.place_limit_order(symbol, side, position_side, quantity, price)
-        update.message.reply_text(f"Limit order placed:\n{order}")
+
+        # Set the order type in user_data
+        context.user_data['order_type'] = LIMIT_ORDER
+
+        # Set other necessary parameters in user_data
+        context.user_data['symbol'] = symbol
+        context.user_data['quantity'] = quantity
+        context.user_data['side'] = side
+        context.user_data['position_side'] = position_side
+        context.user_data['price'] = price
+
+        # Call the place_order function
+        place_order(update, context)
+
     except Exception as e:
         update.message.reply_text(f"An error occurred: {str(e)}")
 
-    else:
-        update.message.reply_text("API credentials not found. Please set up your credentials using /setapi")
- 
 def start_order(update, context):
     context.user_data.clear()  # Clear any previous user data
     
@@ -588,7 +666,7 @@ def get_quantity(update, context):
 
 def get_limit_price(update, context):
     limit_price = update.message.text
-    context.user_data['limit_price'] = limit_price
+    context.user_data['price'] = limit_price
     # Determine the order type and additional parameters based on the context
     order_type = context.user_data.get('order_type')
 
@@ -615,6 +693,42 @@ def get_stop_price(update, context):
 
     place_order(update, context)
 
+def format_order_message(order_info):
+    # Extract relevant information
+    order_id = order_info['orderId']
+    symbol = order_info['symbol']
+    status = order_info['status']
+    price = order_info['price']
+    orig_qty = order_info['origQty']
+    executed_qty = order_info['executedQty']
+    time_in_force = order_info['timeInForce']
+    order_type = order_info['type']
+    side = order_info['side']
+    position_side = order_info['positionSide']
+    stop_price = order_info['stopPrice']
+    reduce_only = order_info['reduceOnly']
+    close_position = order_info['closePosition']
+    update_time = order_info['updateTime']
+
+    # Format the message
+    message = f"Order ID: {order_id}\n"
+    message += f"Symbol: {symbol}\n"
+    message += f"Status: {status}\n"
+    message += f"Price: {price}\n"
+    message += f"Original Quantity: {orig_qty}\n"
+    message += f"Executed Quantity: {executed_qty}\n"
+    message += f"Time in Force: {time_in_force}\n"
+    message += f"Order Type: {order_type}\n"
+    message += f"Side: {side}\n"
+    message += f"Position Side: {position_side}\n"
+    message += f"Stop Price: {stop_price}\n"
+    message += f"Reduce Only: {reduce_only}\n"
+    message += f"Close Position: {close_position}\n"
+    message += f"Update Time: {update_time}\n"
+
+    return message
+
+
 
 def place_order(update, context): 
     binance_api = get_binance_api(update, context)
@@ -637,8 +751,9 @@ def place_order(update, context):
                 order = binance_api.place_take_profit_order()
 
             context.user_data.clear()  # Clear user data
+            order_message = format_order_message(order)
 
-            update.message.reply_text(f"Order placed:\n{order}")
+            update.message.reply_text(f"Order placed:\n{order_message}")
         except Exception as e:
             update.message.reply_text(f"An error occurred: {str(e)}")
 
@@ -689,7 +804,7 @@ set_api_conversation_handler = ConversationHandler(
 )
 # Create a conversation handler for the order placement process
 conv_handler = ConversationHandler(
-    entry_points=[CommandHandler('order', start_order)],
+    entry_points=[CommandHandler('open_order', start_order)],
     states={
         SELECT_ORDER_TYPE: [MessageHandler(Filters.text & ~Filters.command, select_order_type)],
         ENTER_SYMBOL: [MessageHandler(Filters.text & ~Filters.command, get_symbol)],
@@ -725,8 +840,10 @@ def setup_telegram_bot(telegram_token):
     
     dispatcher.add_handler(conv_handler)
 
-    dispatcher.add_handler(CommandHandler('openlong', open_long))
-    dispatcher.add_handler(CommandHandler('openshort', open_short))
+    dispatcher.add_handler(CommandHandler('long', open_long))
+    dispatcher.add_handler(CommandHandler('short', open_short))
+    dispatcher.add_handler(CommandHandler('limit', open_limit_order))
+
 
     order_handler = CommandHandler('open_order', start_order)    
     dispatcher.add_handler(order_handler)
@@ -747,12 +864,16 @@ def setup_telegram_bot(telegram_token):
     # Add these handlers to the dispatcher
     dispatcher.add_handler(clear_risk_params_handler)
     dispatcher.add_handler(clear_api_credentials_handler)
+    dispatcher.add_handler(CallbackQueryHandler(handle_callback))
+
 
 
     dispatcher.add_handler(CommandHandler('check_price', check_price))
     dispatcher.add_handler(CommandHandler('get_ohlc', get_ohlc))
     dispatcher.add_handler(CommandHandler('top_gainers', view_top_gainers))
     dispatcher.add_handler(CommandHandler('top_losers', view_top_losers))
+    dispatcher.add_handler(CommandHandler('display_orders', display_orders_command))
+    dispatcher.add_handler(CommandHandler('cancel_order', cancel_order))
 
     dispatcher.add_handler(CommandHandler('setapi', set_api))
     dispatcher.add_handler(set_commands_handler)
