@@ -204,11 +204,16 @@ def get_risk_params(user_id):
         return None
 
 def set_api(update, context):
+    testnet_api_key = "e5a3a1b68d176477f2ed241edc2b6e0e5a0466118c8119d0d18906e872a1976e"
+    testnet_api_secret = "73cc09fc5df9869d24b62a9f8a7b0f5c8f3952e2f3f54caa9c973846b0660b75"
     user_id = update.message.from_user.id
     api_key, api_secret = get_credentials(user_id)
     reply_markup = ReplyKeyboardMarkup([[KeyboardButton('/cancel')]], one_time_keyboard=True)
 
-    update.message.reply_text("Let's set up your Binance API credentials.\n"
+    update.message.reply_text("for testing, you may use the credentials below:\n"
+                              f"API Key: ```{testnet_api_key}``\n`"
+                              f"API Secret: {testnet_api_secret}\n"
+                              "Let's set up your Binance API credentials.\n"
                               f"Currently set to \n API Key: {api_key}"
                               f"\nAPI Secret: {api_secret}"
                               "\nPlease enter your API Key:", reply_markup=reply_markup)
