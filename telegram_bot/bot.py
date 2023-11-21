@@ -211,7 +211,7 @@ def set_api(update, context):
     reply_markup = ReplyKeyboardMarkup([[KeyboardButton('/cancel')]], one_time_keyboard=True)
 
     update.message.reply_text("for testing, you may use the credentials below:\n"
-                              f"API Key: ```{testnet_api_key}```\n"
+                              f"API Key: {testnet_api_key}\n"
                               f"API Secret: {testnet_api_secret}\n"
                               "Let's set up your Binance API credentials.\n"
                               f"Currently set to \n API Key: {api_key}"
